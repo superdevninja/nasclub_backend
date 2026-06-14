@@ -8,7 +8,7 @@ const bcrypt = require("bcryptjs"); // For hashing and comparing passwords secur
 const User = require("../models/User"); // Mongoose model for the User collection.
 
 // Constants
-const JWT_SECRET = "secretkey"; // Secret key for signing JWT tokens (should be stored securely in environment variables).
+const JWT_SECRET = process.env.JWT_SECRET || "secretkey";
 
 // Controller Functions
 
