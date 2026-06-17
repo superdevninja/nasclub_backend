@@ -6,7 +6,18 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "cross-env NODE_ENV=development nodemon app.js",
+    "migrate": "node migrations/run.js",
+    "migrate:prod": "cross-env NODE_ENV=production node migrations/run.js",
+    "migrate:one": "node migrations/run-one.js",
+    "migrate:users": "node migrations/run-one.js users",
+    "migrate:funds": "node migrations/run-one.js funds",
+    "migrate:fund_histories": "node migrations/run-one.js fund_histories",
+    "migrate:orders": "node migrations/run-one.js orders",
+    "migrate:transactions": "node migrations/run-one.js transactions",
+    "migrate:total_funds": "node migrations/run-one.js total_funds",
+    "migrate:withdraws": "node migrations/run-one.js withdraws",
+    "migrate:add_withdrawls": "node migrations/run-one.js add_withdrawls"
   },
   "engines": {
     "node": "20.x"
@@ -25,6 +36,7 @@
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "nodemon": "^3.1.9"
   }
 }

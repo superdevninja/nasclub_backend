@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const Transaction = new mongoose.Schema(
   {
+    sender: {
+      type: String,
+      default: "",
+    },
     stocks: {
       type: String,
       required: true,

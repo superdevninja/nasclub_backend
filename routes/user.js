@@ -22,7 +22,8 @@ const {
   deleteOrder,
   getAdminFund,
   putFund_history,
-
+  createMarketOrder,
+  getMarketPrice,
 } = require("../controllers/transaction");
 const authMiddleware = require("../middleware/auth");
 
@@ -42,7 +43,8 @@ router
   .route("/getTransacton_history")
   .post(authMiddleware, postTransaction_history);
 
-
+router.route("/getMarketPrice/:symbol").get(authMiddleware, getMarketPrice);
+router.route("/createMarketOrder").post(authMiddleware, createMarketOrder);
 
 //fund section
 router.route("/getFund_history").get(authMiddleware, getFund_history);

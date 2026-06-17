@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const Order = new mongoose.Schema(
   {
+    sender: {
+      type: String,
+      default: "",
+    },
     name: {
       type: String,
       required: true,
