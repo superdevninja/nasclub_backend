@@ -21,6 +21,8 @@ const config = {
   port: parseInt(process.env.PORT || "5000", 10),
   mongoUri:
     process.env.MONGODB_URI ||
+    process.env.MongoDB_URL ||
+    process.env.MONGODB_URL ||
     (isProduction ? "" : "mongodb://localhost:27017/aaa"),
   jwtSecret:
     process.env.JWT_SECRET ||
