@@ -14,8 +14,8 @@ const authenticationMiddleware = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, key);
-    const { id, name, email } = decoded;
-    req.user = { id, name, email };
+    const { id, name, email, role } = decoded;
+    req.user = { id, name, email, role: role || "user" };
     next();
   } catch (error) {
     return res
@@ -24,4 +24,12 @@ const authenticationMiddleware = async (req, res, next) => {
   }
 };
 
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== "admin") {
+    return res.status(403).json({ msg: "Admin access required" });
+  }
+  next();
+};
+
 module.exports = authenticationMiddleware;
+module.exports.requireAdmin = requireAdmin;

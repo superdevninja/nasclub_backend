@@ -1,15 +1,51 @@
 const Transaction = require("../models/Transaction");
-const Fund_history = require("../models/Fund_history");
 const Order = require("../models/Order");
 const Total_fund = require("../models/Total_fund");
 const Fund = require("../models/Fund");
+const User = require("../models/User");
+const {
+  calcAvailableFromFunds,
+  getUserBalance,
+  getAdminBalanceSummary,
+} = require("../utils/balance");
+
+const isAdmin = (req) => req.user?.role === "admin";
+
+const scopeBySender = (req) =>
+  isAdmin(req) ? {} : { sender: req.user.email };
+
+async function listTransactions(req) {
+  return Transaction.find(scopeBySender(req)).sort({ updatedAt: -1 });
+}
+
+async function listOrders(req) {
+  return Order.find(scopeBySender(req)).sort({ createdAt: -1 });
+}
+
+async function listFunds(req) {
+  return Fund.find(scopeBySender(req));
+}
+
+const getBalance = async (req, res) => {
+  if (isAdmin(req)) {
+    const summary = await getAdminBalanceSummary();
+    return res.status(200).json({ role: "admin", ...summary });
+  }
+
+  const balance = await getUserBalance(req.user.email);
+  return res.status(200).json({ role: "user", ...balance });
+};
 
 const getTransacton_history = async (req, res) => {
-  const transaction = await Transaction.find({}).sort({ updatedAt: -1 });
+  const transaction = await listTransactions(req);
   return res.status(200).json({ transaction });
 };
 
 const postTransaction_history = async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ msg: "Admin access required" });
+  }
+
   const options = { new: true };
   const updatedata = req.body;
   const result = await Transaction.findByIdAndUpdate(
@@ -20,16 +56,20 @@ const postTransaction_history = async (req, res) => {
   if (!result) {
     return res.status(404).send({ message: "Transaction not found" });
   }
-  const transaction = await Transaction.find({});
+  const transaction = await listTransactions(req);
   return res.status(200).json({ transaction });
 };
 
 const createMarketOrder = async (req, res) => {
-  const { ticker, qty, price, type, sender } = req.body;
+  const { ticker, qty, price, type } = req.body;
+  const sender = req.user.email;
 
-  if (!ticker || !qty || !price || !type || !sender) {
+  if (!ticker || !qty || !price || !type) {
     return res.status(400).json({ message: "Missing required fields" });
   }
+
+  const user = await User.findById(req.user.id);
+  const clientName = user?.name || req.user.name || "";
 
   const now = new Date();
   const formattedTime = `${now.getHours().toString().padStart(2, "0")}:${now
@@ -44,11 +84,7 @@ const createMarketOrder = async (req, res) => {
 
   if (type === "B") {
     const userFunds = await Fund.find({ sender });
-    let balance = 0;
-    userFunds.forEach((f) => {
-      if (f.Format === "fund" && f.Type === "success") balance += f.amount;
-      if (f.Format === "withdraw" && f.Type === "success") balance -= f.amount;
-    });
+    const balance = calcAvailableFromFunds(userFunds);
     if (balance < totalValue) {
       return res.status(400).json({ message: "Insufficient funds" });
     }
@@ -69,6 +105,8 @@ const createMarketOrder = async (req, res) => {
 
   const newOrder = new Order({
     sender,
+    clientName,
+    userId: req.user.id,
     name: ticker.toUpperCase(),
     status: "successful",
     Time: formattedTime,
@@ -92,17 +130,25 @@ const createMarketOrder = async (req, res) => {
   });
   await fundEntry.save();
 
-  return res
-    .status(201)
-    .json({ message: "Order created successfully", order: newOrder });
+  const balance = await getUserBalance(sender);
+
+  return res.status(201).json({
+    message: "Order created successfully",
+    order: newOrder,
+    balance,
+  });
 };
 
 const getFund_history = async (req, res) => {
-  const fund = await Fund.find({});
+  const fund = await listFunds(req);
   return res.status(200).json({ fund });
 };
 
 const putFund_history = async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ msg: "Admin access required" });
+  }
+
   const options = { new: true };
   const updatedata = req.body;
   const result = await Fund.findByIdAndUpdate(
@@ -117,34 +163,52 @@ const putFund_history = async (req, res) => {
 };
 
 const postFund_history = async (req, res) => {
-  const new_fund = new Fund(req.body);
+  const fundData = {
+    ...req.body,
+    sender: req.user.email,
+    Type: "pending",
+  };
+
+  const new_fund = new Fund(fundData);
   await new_fund.save();
-  const fund = await Fund.find({});
+  const fund = await listFunds(req);
   return res.status(200).json({ fund });
 };
 
 const getAdminFund = async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ msg: "Admin access required" });
+  }
+
   const found_fund = await Fund.find({});
   const fund = found_fund.filter((item) => item.Type === "pending");
   return res.status(200).json({ fund });
 };
 
 const getOrder = async (req, res) => {
-  const order = await Order.find({}).sort({ createdAt: -1 });
+  const order = await listOrders(req);
   return res.status(200).json({ order });
 };
 
 const deleteOrder = async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ msg: "Admin access required" });
+  }
+
   const userId = req.params.id;
   const result = await Order.findByIdAndDelete(userId);
   if (!result) {
     return res.status(404).send({ message: "Order not found" });
   }
-  const order = await Order.find({}).sort({ createdAt: -1 });
+  const order = await listOrders(req);
   return res.status(200).json({ order });
 };
 
 const postOrder = async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ msg: "Admin access required" });
+  }
+
   const options = { new: true };
   const updatedata = req.body;
   const result = await Order.findByIdAndUpdate(
@@ -155,7 +219,7 @@ const postOrder = async (req, res) => {
   if (!result) {
     return res.status(404).send({ message: "Order not found" });
   }
-  const order = await Order.find({}).sort({ createdAt: -1 });
+  const order = await listOrders(req);
   return res.status(200).json({ order });
 };
 
@@ -165,6 +229,10 @@ const getTotal_fund = async (req, res) => {
 };
 
 const postTotal_fund = async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ msg: "Admin access required" });
+  }
+
   await Total_fund.deleteMany({});
   const fund = req.body;
   fund.map(async (item) => {
@@ -239,6 +307,7 @@ async function getMarketPrice(req, res) {
 }
 
 module.exports = {
+  getBalance,
   getTransacton_history,
   getFund_history,
   postFund_history,
