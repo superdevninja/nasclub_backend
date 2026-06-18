@@ -6,6 +6,14 @@ const Order = new mongoose.Schema(
       type: String,
       default: "",
     },
+    clientName: {
+      type: String,
+      default: "",
+    },
+    userId: {
+      type: String,
+      default: "",
+    },
     name: {
       type: String,
       required: true,
